@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rat's Tail</title>
+
+
+<style>
+  html,body{margin:0;height:100%;background:#0a0a0f;overflow:hidden;cursor:none}
+  canvas{display:block}
+</style>
+
+
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+(()=> {
+const c=document.getElementById('c'),x=c.getContext('2d');
+let W,H,px=0,py=0,mx=0,my=0;
+
+let h=190;
+
+function size(){c.width=W=innerWidth;c.height=H=innerHeight;}
+addEventListener('resize',size);size();
+mx=px=innerWidth/2;my=py=innerHeight/2;
+
+//
+let AC=null,verb=null,NODES=0;
+function initAudio(){
+  AC=new (window.AudioContext||window.webkitAudioContext)();
+  const dly=AC.createDelay(1);dly.delayTime.value=.31;   NODES++;
+  const fb =AC.createGain();fb.gain.value=.94;            NODES++; 
+  const lp =AC.createBiquadFilter();lp.type='lowpass';lp.frequency.value=900; NODES++;
+  dly.connect(fb);fb.connect(lp);lp.connect(dly);
+  const wet=AC.createGain();wet.gain.value=.6;             NODES++;
+  lp.connect(wet);wet.connect(AC.destination);
+  verb=dly;
+}
+function noise(){            
+  const len=AC.sampleRate,buf=AC.createBuffer(2,len,AC.sampleRate);
+  for(let ch=0;ch<2;ch++){const a=buf.getChannelData(ch);
+    for(let i=0;i<len;i++)a[i]=Math.random()*2-1;}
+  return buf;
+}
+function playSwoosh(){    
+  if(!AC)return;
+  const s=AC.createBufferSource();s.buffer=noise();s.loop=true;   NODES++;
+  s.playbackRate.value=.5+Math.random()*1.6;
+  const g=AC.createGain();g.gain.value=.35;             NODES++;
+  s.connect(g);g.connect(verb);
+  s.start();s.stop(AC.currentTime+.12);
+  const o=AC.createOscillator();o.type='sawtooth';     NODES++;
+  o.frequency.value=200+Math.random()*2400;
+  const og=AC.createGain();og.gain.value=.2;            NODES++;
+  o.connect(og);og.connect(AC.destination);
+  o.start();o.stop(AC.currentTime+.08);
+}
+
+//
+addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;playSwoosh()});
+
+const hue=o=>`hsl(${h+o} 100% 60%)`;
+const P=[];
+const push=(X,Y,vx,vy,r,a,d,o=0)=>P.push({x:X,y:Y,vx,vy,r,a,d,c:hue(o)});
+
+function emit(){
+    const dx=mx-px,dy=my-py,d=Math.hypot(dx,dy),s=Math.max(1,Math.ceil(d/6));
+    for(let i=1;i<=s;i++)push(px+dx*i/s,py+dy*i/s,(Math.random()-.5)*.6,
+(Math.random()-.5)*.6,1+Math.random()*2,1,.02);
+    px=mx;py=my;
+}
+
+function burst(n,sp,o){
+    for(let i=0;i<n;i++){
+        const a=Math.random()*7,v=sp*(.3+Math.random());
+        push(mx+Math.cos(a)*6,my+Math.sin(a)*6,Math.cos(a)*v,Math.sin(a)*v,1+Math.random()*3.5,1,.04,
+(Math.random()-.5)*o);
+    }
+}
+
+
+
+
+
+function loop(){
+    x.fillStyle='rgba(0,0,0,0.1)';
+    x.fillRect(0,0,W,H);
+    emit();
+    for(let i=P.length-1;i>=0;i--){
+        const p=P[i];
+
+        p.x+=p.vx;p.y+=p.vy;p.vx*=.97;p.vy*=.97;p.a-=p.d;
+
+        if(p.a<=0){P.splice(i,1);continue}
+
+        x.globalAlpha=p.a;x.fillStyle=p.c;
+
+        x.beginPath();x.arc(p.x,p.y,p.r,0,7);x.fill()
+    }
+    x.globalAlpha=1;
+    requestAnimationFrame(loop);
+}
+
+addEventListener('mousedown',e=>{
+    if(e.button===0)burst(90,9,70);
+    else if(e.button===2){h=(h+50)%360;burst(40,6,90)}
+    e.preventDefault();
+});
+addEventListener('contextmenu',e=>e.preventDefault());
+
+addEventListener('click',()=>{initAudio();AC.resume();playSwoosh()});
+
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
