@@ -27,39 +27,72 @@ addEventListener('resize',size);size();
 mx=px=innerWidth/2;my=py=innerHeight/2;
 
 //
-let AC=null,verb=null,NODES=0;
-function initAudio(){
-  AC=new (window.AudioContext||window.webkitAudioContext)();
-  const dly=AC.createDelay(1);dly.delayTime.value=.31;   NODES++;
-  const fb =AC.createGain();fb.gain.value=.94;            NODES++; 
-  const lp =AC.createBiquadFilter();lp.type='lowpass';lp.frequency.value=900; NODES++;
-  dly.connect(fb);fb.connect(lp);lp.connect(dly);
-  const wet=AC.createGain();wet.gain.value=.6;             NODES++;
-  lp.connect(wet);wet.connect(AC.destination);
-  verb=dly;
-}
-function noise(){            
-  const len=AC.sampleRate,buf=AC.createBuffer(2,len,AC.sampleRate);
-  for(let ch=0;ch<2;ch++){const a=buf.getChannelData(ch);
-    for(let i=0;i<len;i++)a[i]=Math.random()*2-1;}
-  return buf;
-}
-function playSwoosh(){    
-  if(!AC)return;
-  const s=AC.createBufferSource();s.buffer=noise();s.loop=true;   NODES++;
-  s.playbackRate.value=.5+Math.random()*1.6;
-  const g=AC.createGain();g.gain.value=.35;             NODES++;
-  s.connect(g);g.connect(verb);
-  s.start();s.stop(AC.currentTime+.12);
-  const o=AC.createOscillator();o.type='sawtooth';     NODES++;
-  o.frequency.value=200+Math.random()*2400;
-  const og=AC.createGain();og.gain.value=.2;            NODES++;
-  o.connect(og);og.connect(AC.destination);
-  o.start();o.stop(AC.currentTime+.08);
+
+let AC=null, voice=null, bpF=null;
+
+function ensureAudio(){
+    if(AC)return;
+    AC=new (window.AudioContext||window.webkitAudioContext)();
+
+    const len=AC.sampleRate*2, buf=AC.createBuffer(1, len, AC.sampleRate), ch=buf.getChannelData(0);
+
+    for(let i=0; i<len; i++)ch[i]=Math.random()*2-1;
+
+    const src=AC.createBufferSource(); src.buffer=buf; src.loop=true;
+
+    const bp=AC.createBiquadFilter(); bp.type='pass'; bp.frequency.value=1200; bp.Q.value=1;
+
+    voice=AC.createGain(); voice.gain.value=0;
+    
+    bpF=bp;
+
+    src.connect(bp).connect(voice).connect(AC.destination);
+
+    src.start();
 }
 
+
+function ClickBing(){
+    ensureAudio(); AC.resume();
+
+    const now=AC.currentTime;
+    const o=AC.createOscillator();
+
+    o.type='sine';
+    o.frequency.setValueAtTime(2200, now);
+
+    o.frequency.exponentialRampToValueAtTime(80, now+0.35);
+
+    const g=AC.createGain();
+
+    g.connect(AC.destination);
+
+    g.gain.setValueAtTime(0.25, now);
+
+    g.gain.exponentialRampToValueAtTime(0.001, now+0.35)
+
+    o.connect(g);
+
+
+    o.start(now);
+    o.stop(now+0.36)
+}
+
+
+
+
+
+
+
+
+
+
+
+
 //
-addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;playSwoosh()});
+addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY; ensureAudio()
+    if(AC.state==='suspended')AC.resume();
+});
 
 const hue=o=>`hsl(${h+o} 100% 60%)`;
 const P=[];
@@ -85,6 +118,9 @@ function burst(n,sp,o){
 
 
 function loop(){
+
+    const sp=Math.hypot(mx-px, my-py);
+
     x.fillStyle='rgba(0,0,0,0.1)';
     x.fillRect(0,0,W,H);
     emit();
@@ -100,6 +136,28 @@ function loop(){
         x.beginPath();x.arc(p.x,p.y,p.r,0,7);x.fill()
     }
     x.globalAlpha=1;
+
+
+    // changer part
+    if(voice){
+        const target=Math.min(0.6, sp*0.03);
+        voice.gain.exponentialRampToValueAtTime(
+            sp<1 ? 0.0001 : Math.max(0.0001, target),
+            AC.currentTime+0.05
+        );
+        bpF.frequency.setTargetAtTime(
+            400+Math.min(4000, sp*40), AC.currentTime, 0.05
+        );
+        
+    }
+
+
+
+
+
+
+
+
     requestAnimationFrame(loop);
 }
 
@@ -110,7 +168,7 @@ addEventListener('mousedown',e=>{
 });
 addEventListener('contextmenu',e=>e.preventDefault());
 
-addEventListener('click',()=>{initAudio();AC.resume();playSwoosh()});
+addEventListener('click', ClickBing);
 
 requestAnimationFrame(loop);
 })();
