@@ -1,0 +1,23 @@
+<!DOCTYPE html><title>-> data URI</title>
+
+<style>
+    textarea, input {width: 100%; box-sizing: border-box; margin-bottom: 10px; }
+    textarea {height: 100px; }
+    input, button {font: 16px monospace; padding: 10px; }
+    button { display: block; margin-bottom: 10px; }
+</style>
+
+<textarea id=i placeholder="paste your one-line HTML here"></textarea>
+
+<button onclick="go()">convert</button>
+
+<input id="a" readonly placeholder="precent-encoding result">
+<input id="b" readonly placeholder="base64 result">
+
+<script>
+const go=()=>{
+    const s=i.value;
+    a.value='data:text/html;charset=utf-8,'+encodeURIComponent(s);
+    b.value='data:text/html;base64,'+btoa(unescape(encodeURIComponent(s)));
+};
+</script>
